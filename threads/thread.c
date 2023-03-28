@@ -27,6 +27,7 @@
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
+static struct list block_list;			//list for sleep(blocked)
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -108,6 +109,7 @@ thread_init (void) {
 	/* Init the globla thread context */
 	lock_init (&tid_lock);
 	list_init (&ready_list);
+	list_init (&block_list);
 	list_init (&destruction_req);
 
 	/* Set up a thread structure for the running thread. */
@@ -222,6 +224,62 @@ thread_block (void) {
 	ASSERT (intr_get_level () == INTR_OFF);
 	thread_current ()->status = THREAD_BLOCKED;
 	schedule ();
+}
+
+void
+thread_sleep (int64_t ticks) {
+	struct thread *t = thread_current();
+	struct thread *compare;	
+	enum intr_level old_level = intr_disable ();
+	struct list_elem *element = list_begin (&block_list);	//begin returns head.next
+	bool flag=true;
+	t->thread_sleep = ticks;
+	while (flag)//flag turns into false when it reaches end or find place to insert
+	{		
+		if (element == list_end(&block_list))
+		{
+			list_push_back (&block_list, &t->elem);
+			flag=false;
+		}
+		else
+		{
+			compare = list_entry(element,struct thread,elem);
+			if (compare->thread_sleep > ticks)
+			{
+				list_insert(element,&t->elem);
+				flag=false;
+			}
+			else
+				element=list_next(element);
+		}
+	}
+	thread_block();
+	intr_set_level (old_level);
+}
+
+void
+thread_awake (int64_t ticks) {
+	bool flag=true;
+	struct list_elem *element = list_begin (&block_list);
+	struct thread *t;
+	while (flag)
+	{
+		if (element!=list_end(&block_list))
+		{
+			t=list_entry(element, struct thread, elem);
+			if (t->thread_sleep>ticks)
+			{
+				flag=false;
+			}
+			else
+			{
+				element=list_remove(element);
+				thread_unblock(t);
+			}
+		}
+		else
+			flag=false;
+	}
 }
 
 /* Transitions a blocked thread T to the ready-to-run state.
