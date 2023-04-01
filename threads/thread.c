@@ -231,34 +231,25 @@ thread_block (void) {
 	thread_current ()->status = THREAD_BLOCKED;
 	schedule ();
 }
-
+/* Compare time to wake up of two list element(thread)s and return as boolean. 
+	Made to use list_insert_ordered function
+	which finds a position of an element in a list with given compare function
+	and insert the element.
+*/
+bool
+compare_sleep ( struct list_elem *a, struct list_elem *b, void *aux UNUSED) {
+	struct thread *ta;
+	struct thread *tb;
+	ta = list_entry(a, struct thread, elem);
+	tb = list_entry(b, struct thread, elem);
+	return ta->thread_sleep > tb->thread_sleep;
+}
 void
 thread_sleep (int64_t ticks) {
 	struct thread *t = thread_current();
-	struct thread *compare;	
 	enum intr_level old_level = intr_disable ();
-	struct list_elem *element = list_begin (&block_list);	//begin returns head.next
-	bool flag=true;
 	t->thread_sleep = ticks;
-	while (flag)//flag turns into false when it reaches end or find place to insert
-	{		
-		if (element == list_end(&block_list))
-		{
-			list_push_back (&block_list, &t->elem);
-			flag=false;
-		}
-		else
-		{
-			compare = list_entry(element,struct thread,elem);
-			if (compare->thread_sleep > ticks)
-			{
-				list_insert(element,&t->elem);
-				flag=false;
-			}
-			else
-				element=list_next(element);
-		}
-	}
+	list_insert_ordered (&block_list, &t->elem, compare_sleep, NULL);
 	thread_block();
 	intr_set_level (old_level);
 }
