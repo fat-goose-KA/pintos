@@ -209,6 +209,12 @@ thread_create (const char *name, int priority,
 	/* Add to run queue. */
 	thread_unblock (t);
 
+	/* Compare the priority of currently running thread and newly created one.
+	   If new thread has higher priority, yield the CPU. */
+	if (thread_current()->priority < t->priority)
+	{
+		thread_yield();
+	}
 	return tid;
 }
 
@@ -282,6 +288,20 @@ thread_awake (int64_t ticks) {
 	}
 }
 
+/* Compare priority of two list element(thread)s and return as boolean.
+	Made to use list_insert_ordered function
+	which finds a position of an element in a list with given compare function
+	and insert the element.
+*/
+bool
+compare_priority ( struct list_elem *a, struct list_elem *b, void *aux UNUSED) {
+	struct thread *ta;
+	struct thread *tb;
+	ta = list_entry(a, struct thread, elem);
+	tb = list_entry(b, struct thread, elem);
+	return ta->priority > tb->priority;
+}
+
 /* Transitions a blocked thread T to the ready-to-run state.
    This is an error if T is not blocked.  (Use thread_yield() to
    make the running thread ready.)
@@ -298,7 +318,8 @@ thread_unblock (struct thread *t) {
 
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
-	list_push_back (&ready_list, &t->elem);
+	//list_push_back (&ready_list, &t->elem);
+	list_insert_ordered (&ready_list, &t->elem, compare_priority, NULL);
 	t->status = THREAD_READY;
 	intr_set_level (old_level);
 }
@@ -361,15 +382,36 @@ thread_yield (void) {
 
 	old_level = intr_disable ();
 	if (curr != idle_thread)
-		list_push_back (&ready_list, &curr->elem);
+	//	list_push_back (&ready_list, &curr->elem);
+		list_insert_ordered(&ready_list, &curr->elem, compare_priority, NULL);
 	do_schedule (THREAD_READY);
 	intr_set_level (old_level);
+}
+
+/* check the current thread's priority and ready list's max priority 
+	and yield CPU if ready list's priority is higher.*/
+
+void 
+check_max_priority(void) {
+	if (!list_empty (&ready_list) && 
+	thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority)
+	{
+		thread_yield();
+	}
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) {
 	thread_current ()->priority = new_priority;
+	
+	/* Compare the changed priority of currently running thread and highest one in ready list.
+	   If current thread has lower priority, yield the CPU. */
+	if (!list_empty (&ready_list) && 
+	thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority)
+	{
+		thread_yield();
+	}
 }
 
 /* Returns the current thread's priority. */
