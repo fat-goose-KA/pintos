@@ -242,7 +242,7 @@ compare_sleep ( struct list_elem *a, struct list_elem *b, void *aux UNUSED) {
 	struct thread *tb;
 	ta = list_entry(a, struct thread, elem);
 	tb = list_entry(b, struct thread, elem);
-	return ta->thread_sleep > tb->thread_sleep;
+	return ta->thread_sleep < tb->thread_sleep;
 }
 void
 thread_sleep (int64_t ticks) {
@@ -499,6 +499,7 @@ init_thread (struct thread *t, const char *name, int priority) {
 	strlcpy (t->name, name, sizeof t->name);
 	t->tf.rsp = (uint64_t) t + PGSIZE - sizeof (void *);
 	t->priority = priority;
+	t->original_priority = priority;
 	t->magic = THREAD_MAGIC;
 }
 
