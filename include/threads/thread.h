@@ -93,6 +93,9 @@ struct thread {
 	int priority;                       /* Priority. */
 	int original_priority;				// save original priority for the case when priority is donated
 	int thread_sleep;					// save time(ticksfb) to wake up
+	struct lock *waiting_for;
+	struct list donation_list;			//list of elements, who are waiting for current thread (threads who donated)
+
 	
 
 	/* Shared between thread.c and synch.c. */

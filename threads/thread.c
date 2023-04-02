@@ -411,6 +411,15 @@ thread_get_priority (void) {
 	return thread_current ()->priority;
 }
 
+void donate_priority(void){
+	struct thread *cur=thread_current();
+	while (cur->waiting_for){
+		struct thread *lock_holder = cur -> waiting_for->holder;
+		lock_holder->priority = cur ->priority;
+		cur=lock_holder;
+	}
+}
+
 /* Sets the current thread's nice value to NICE. */
 void
 thread_set_nice (int nice UNUSED) {
@@ -501,6 +510,8 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->priority = priority;
 	t->original_priority = priority;
 	t->magic = THREAD_MAGIC;
+	t -> waiting_for =NULL;	// initializaion of lock waiting for as NULL
+	list_init(&t -> donation_list);	//
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
